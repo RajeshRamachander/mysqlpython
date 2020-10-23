@@ -1,6 +1,6 @@
-USE sakila;
+USE SAKILA;
 
-SHOW tables;
+SHOW TABLES;
 
 -- Which genres are most promising to invest based on current revenue?
  /* 
@@ -220,7 +220,198 @@ CREATE TEMPORARY TABLE last_payment AS
 		last_payment;
 
 
+/* 
+PYTHON SQL INTEGRATION Queries
+*/
 
+
+/*
+
+1. Kirk Gopal is looking to meet the staff in each store, let him know the address to meet them
+*/
+
+
+
+SELECT 
+	staff.first_name AS manager_first_name, 
+    staff.last_name AS manager_last_name,
+    address.address, 
+    address.district, 
+    city.city, 
+    country.country
+
+FROM store
+	LEFT JOIN staff ON store.manager_staff_id = staff.staff_id
+    LEFT JOIN address ON store.address_id = address.address_id
+    LEFT JOIN city ON address.city_id = city.city_id
+    LEFT JOIN country ON city.country_id = country.country_id
+;
+
+
+/*
+Kirk want to understand the inventory is in terms of replacement cost. 
+He wants to see the impact if a certain category of film became unpopular at a certain store. 
+He would like to see the number of films, as well as the average replacement cost, and total replacement cost, sliced by store and film category.
+*/
+
+SELECT 
+	store_id, 
+    category.name AS category, 
+	COUNT(inventory.inventory_id) AS films, 
+    AVG(film.replacement_cost) AS avg_replacement_cost, 
+    SUM(film.replacement_cost) AS total_replacement_cost
+    
+FROM inventory
+	LEFT JOIN film
+		ON inventory.film_id = film.film_id
+	LEFT JOIN film_category
+		ON film.film_id = film_category.film_id
+	LEFT JOIN category
+		ON category.category_id = film_category.category_id
+
+GROUP BY 
+	store_id, 
+    category.name
+    
+ORDER BY 
+	SUM(film.replacement_cost) DESC
+;
+
+
+/*
+
+3. Kirk wants to the customer demographics. Please provide a list 
+of all customer names, which store they go to, whether or not they 
+are currently active, and their full addresses. 
+*/
+
+
+SELECT 
+	customer.first_name, 
+    customer.last_name, 
+    customer.store_id,
+    customer.active, 
+    address.address, 
+    city.city, 
+    country.country
+
+FROM customer
+	LEFT JOIN address ON customer.address_id = address.address_id
+    LEFT JOIN city ON address.city_id = city.city_id
+    LEFT JOIN country ON city.country_id = country.country_id
+;
+
+
+
+/*
+
+4. Kirk would like to understand how much customers are 
+spending with you, and also to know who your most top paying 
+customers are.
+
+*/
+
+SELECT 
+	customer.first_name, 
+    customer.last_name, 
+    COUNT(rental.rental_id) AS total_rentals, 
+    SUM(payment.amount) AS total_payment_amount
+
+FROM customer
+	LEFT JOIN rental ON customer.customer_id = rental.customer_id
+    LEFT JOIN payment ON rental.rental_id = payment.rental_id
+
+GROUP BY 
+	customer.first_name,
+    customer.last_name
+
+ORDER BY 
+	SUM(payment.amount) DESC
+    ;
+    
+
+-- 5.How is the length of the movie related to the movie rating, rental duration and rental rate set by the store? TABLE(s): film
+SELECT
+	rating AS movie_rating,
+	AVG(length) AS avg_movie_length,
+    AVG(rental_duration) AS avg_rental_duration,
+    AVG(rental_rate) AS avg_rental_rate
+FROM film
+GROUP BY 1
+ORDER BY 2,3;
+    
+-- 6. Which category of movie is the longest and does this have any relationship with rental rate? TABLE(s) category, film, film category
+
+SELECT
+	c.name AS category,
+	AVG(f.length) AS avg_length,
+    AVG(f.rental_rate) AS avg_rental_rate
+FROM film AS f
+	LEFT JOIN film_category AS fc
+		ON f.film_id = fc.film_id
+	LEFT JOIN category AS c
+		ON c.category_id = fc.category_id
+GROUP BY c.name
+ORDER BY 2 DESC,3 DESC;
+
+-- 7. Which actor has best average rental rate for his/ her movie? -- TABLE(s) film_actor, films
+SELECT
+	a.actor_id AS actor_id,
+    CONCAT(a.first_name,' ',a.last_name) As actor_name,
+    AVG(f.rental_rate) AS avg_rental_rate
+    
+FROM film AS f
+	LEFT JOIN film_actor AS fa
+		ON fa.film_id = f.film_id
+	LEFT JOIN actor AS a
+		ON a.actor_id = fa.actor_id
+GROUP BY 1
+ORDER BY 3 DESC
+LIMIT 1;
+
+
+-- 8. Which category (genre or rating) of film has the most rentals, and does this have to do anything with the length of the film? TABLE(s): category, film, inventory,rental
+
+SELECT
+	f.rating AS rating,
+	COUNT(DISTINCT r.rental_id) AS number_of_rentals,
+    f.length AS film_length
+FROM rental AS r
+	LEFT JOIN inventory AS i
+		ON i.inventory_id = r.inventory_id
+	LEFT JOIN film AS f
+		ON f.film_id = i.film_id
+GROUP BY 
+	f.rating,
+    f.length
+ORDER BY 2 DESC, 3 DESC;
+
+
+
+-- 9. What are the top 5 earning genre or rating of films rented by the customers per store - count and revenue? TABLES: category, payment, film
+
+SELECT
+	s.store_id AS store_id,
+	c.name AS genre,
+    COUNT(DISTINCT r.rental_id) AS rentals,
+	SUM(p.amount) AS revenue
+FROM store AS s
+	LEFT JOIN inventory AS i
+		ON i.store_id = s.store_id
+	LEFT JOIN film AS f
+		ON f.film_id = i.film_id
+	LEFT JOIN film_category AS fc
+		ON f.film_id = fc.film_id
+	LEFT JOIN category As c
+		ON fc.category_id = c.category_id
+	LEFT JOIN rental AS r
+		ON i.inventory_id = r.inventory_id
+	LEFT JOIN payment AS p
+		ON p.rental_id = r.rental_id
+GROUP BY
+	s.store_id,
+    c.name
+ORDER BY 1, 3 DESC,4 DESC;
 
 
 
