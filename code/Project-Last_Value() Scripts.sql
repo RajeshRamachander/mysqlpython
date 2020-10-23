@@ -3,7 +3,7 @@ Use sakila;
 --  Last_value():
 #Question 1 --What is the genre of the last movie rented in a day? 
 -- Used 4 Table join on rental , inventory , film_category,category tables
-create table combined_table2 as
+create temporary table combined_table2 as
 select rental.rental_id,
 convert(rental.rental_date, date) as only_date,
 convert (rental.rental_date, time) as only_time ,
@@ -16,9 +16,7 @@ on inventory.film_id=film_category.film_id
 left join category
 on film_category.category_id=category.category_id;
 
-select *from combined_table2;
-
-select only_date,only_time, name,
+select distinct only_date,
 last_value (name) 
 over(partition by only_date 
 order by only_time 
@@ -27,15 +25,13 @@ from combined_table2 ;
 
 #Question 2-What is the last/ latest payment of customer from the given data (name of the customer also to be queried)?
 -- Joined payment table and customer table
-create table last_payment as
+create temporary table last_payment as
 select payment.customer_id,
 customer.first_name,
 customer.last_name,payment.amount,
 payment.payment_date
 from payment left join customer
 on payment.customer_id=customer.customer_id;
-
-select *from last_payment;
 
 select distinct first_name,last_name,
 last_value(amount)
